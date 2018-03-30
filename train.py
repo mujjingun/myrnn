@@ -6,7 +6,7 @@ from indrnn_convattention import build_model
 input_data = tf.placeholder(tf.uint8, shape=(None, None, 2)) # (B, T, c + s)
 features = tf.placeholder(tf.uint8, shape = (None, None)) # (B, N_f)
 
-loss = build_model(input_data, features)
+loss = build_model(input_data, features, DICT_SIZE=30, TIME_STEPS=1000)
 train_op = tf.train.AdamOptimizer(1e-4).minimize(loss)
 
 BATCH_SIZE = 2
