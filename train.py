@@ -14,12 +14,13 @@ BATCH_SIZE = 1
 with tf.Session(config=tf.ConfigProto()) as sess:
     sess.run([tf.global_variables_initializer()])
 
-    for iterations in range(100):
-        mock_samples = np.random.randint(0, 255, size=(BATCH_SIZE, 1000, 2))
+    for iterations in range(1000):
         mock_sentence = np.random.randint(0, 30, size=(BATCH_SIZE, 100))
+        mock_samples_c = np.expand_dims(np.repeat(mock_sentence, 10), 0)
+        mock_samples_f = mock_samples_c + np.expand_dims(np.repeat(np.expand_dims(np.arange(10), 0), 100, axis=0).flatten(), 0)
         _, L = sess.run([train_op, loss],
                  {
-                     input_data.name: mock_samples,
+                     input_data.name: np.stack([mock_samples_c, mock_samples_f], 2),
                      features.name: mock_sentence
                  })
         print(L)
