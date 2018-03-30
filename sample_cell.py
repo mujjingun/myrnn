@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 import tensorflow as tf
 from ind_rnn_cell import IndRNNCell
-from tensorflow.python.ops import rnn_cell_impl
 
-class SampleCell(rnn_cell_impl._LayerRNNCell):
+class SampleCell(tf.nn.rnn_cell.RNNCell):
     def __init__(self, recurrent_max_abs):
         super(SampleCell, self).__init__()
         self._indrnn = IndRNNCell(

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import tensorflow as tf
 from ind_rnn_cell import IndRNNCell
-from tensorflow.python.ops import rnn_cell_impl
 
 def batchwise_conv(seq, filt):
     # seq: (B, seq_len, chan)
@@ -57,7 +56,7 @@ def batchwise_conv_2(seq, filt):
     )
     return batch_wise_conv
 
-class AttentionCell(rnn_cell_impl._LayerRNNCell):
+class AttentionCell(tf.nn.rnn_cell.RNNCell):
     def __init__(self, features, recurrent_max_abs):
         super(AttentionCell, self).__init__()
 

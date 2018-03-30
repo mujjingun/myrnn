@@ -1,14 +1,7 @@
 """Module implementing the IndRNN cell"""
+import tensorflow as tf
 
-from tensorflow.python.ops import math_ops
-from tensorflow.python.ops import init_ops
-from tensorflow.python.ops import nn_ops
-from tensorflow.python.ops import clip_ops
-from tensorflow.python.ops import rnn_cell_impl
-from tensorflow.python.layers import base as base_layer
-
-
-class IndRNNCell(rnn_cell_impl._LayerRNNCell):
+class IndRNNCell(tf.nn.rnn_cell.RNNCell):
   """Independently RNN Cell. Adapted from `rnn_cell_impl.BasicRNNCell`.
 
   Each unit has a single recurrent weight connected to its last hidden state.
@@ -63,14 +56,14 @@ class IndRNNCell(rnn_cell_impl._LayerRNNCell):
     super(IndRNNCell, self).__init__(_reuse=reuse, name=name)
 
     # Inputs must be 2-dimensional.
-    self.input_spec = base_layer.InputSpec(ndim=2)
+    self.input_spec = tf.layers.InputSpec(ndim=2)
 
     self._num_units = num_units
     self._recurrent_min_abs = recurrent_min_abs
     self._recurrent_max_abs = recurrent_max_abs
     self._recurrent_initializer = recurrent_kernel_initializer
     self._input_initializer = input_kernel_initializer
-    self._activation = activation or nn_ops.relu
+    self._activation = activation or tf.nn.relu
 
   @property
   def state_size(self):
@@ -87,7 +80,7 @@ class IndRNNCell(rnn_cell_impl._LayerRNNCell):
 
     input_depth = inputs_shape[1].value
     if self._input_initializer is None:
-      self._input_initializer = init_ops.random_normal_initializer(mean=0.0,
+      self._input_initializer = tf.random_normal_initializer(mean=0.0,
                                                                    stddev=0.001)
     self._input_kernel = self.add_variable(
         "input_kernel",
@@ -95,7 +88,7 @@ class IndRNNCell(rnn_cell_impl._LayerRNNCell):
         initializer=self._input_initializer)
 
     if self._recurrent_initializer is None:
-      self._recurrent_initializer = init_ops.constant_initializer(1.)
+      self._recurrent_initializer = tf.constant_initializer(1.)
     self._recurrent_kernel = self.add_variable(
         "recurrent_kernel",
         shape=[self._num_units],
@@ -103,23 +96,23 @@ class IndRNNCell(rnn_cell_impl._LayerRNNCell):
 
     # Clip the absolute values of the recurrent weights to the specified minimum
     if self._recurrent_min_abs:
-      abs_kernel = math_ops.abs(self._recurrent_kernel)
-      min_abs_kernel = math_ops.maximum(abs_kernel, self._recurrent_min_abs)
-      self._recurrent_kernel = math_ops.multiply(
-          math_ops.sign(self._recurrent_kernel),
+      abs_kernel = tf.abs(self._recurrent_kernel)
+      min_abs_kernel = tf.maximum(abs_kernel, self._recurrent_min_abs)
+      self._recurrent_kernel = tf.multiply(
+          tf.sign(self._recurrent_kernel),
           min_abs_kernel
       )
 
     # Clip the absolute values of the recurrent weights to the specified maximum
     if self._recurrent_max_abs:
-      self._recurrent_kernel = clip_ops.clip_by_value(self._recurrent_kernel,
+      self._recurrent_kernel = tf.clip_by_value(self._recurrent_kernel,
                                                       -self._recurrent_max_abs,
                                                       self._recurrent_max_abs)
 
     self._bias = self.add_variable(
         "bias",
         shape=[self._num_units],
-        initializer=init_ops.zeros_initializer(dtype=self.dtype))
+        initializer=tf.zeros_initializer(dtype=self.dtype))
 
     self.built = True
 
@@ -141,9 +134,9 @@ class IndRNNCell(rnn_cell_impl._LayerRNNCell):
       A tuple containing the output and new hidden state. Both are the same
         2-D tensor of shape `[batch, num_units]`.
     """
-    gate_inputs = math_ops.matmul(inputs, self._input_kernel)
-    recurrent_update = math_ops.multiply(state, self._recurrent_kernel)
-    gate_inputs = math_ops.add(gate_inputs, recurrent_update)
-    gate_inputs = nn_ops.bias_add(gate_inputs, self._bias)
+    gate_inputs = tf.matmul(inputs, self._input_kernel)
+    recurrent_update = tf.multiply(state, self._recurrent_kernel)
+    gate_inputs = tf.add(gate_inputs, recurrent_update)
+    gate_inputs = tf.nn.bias_add(gate_inputs, self._bias)
     output = self._activation(gate_inputs)
     return output, output
