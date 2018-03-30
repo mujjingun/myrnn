@@ -21,7 +21,7 @@ def build_model(input_data, # (B, T, 2) uint8
 
     cell = tf.contrib.rnn.MultiRNNCell(
             [AttentionCell(features_1h, recurrent_max),
-             IndCatCell(256, recurrent_max),
+             IndCatCell(300, recurrent_max),
              SampleCell(recurrent_max)])
     output, state = tf.nn.dynamic_rnn(cell, input_norm, dtype=tf.float32)
     # output: output over time (B, T, 2 * 256)

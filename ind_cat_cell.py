@@ -23,5 +23,4 @@ class IndCatCell(tf.nn.rnn_cell.RNNCell):
 
     def __call__(self, inputs, state, scope=None):
         out, state = self._indrnn(inputs, state, scope)
-        out = tf.concat([out, inputs[:, -2:]], 1)
         return out, state

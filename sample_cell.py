@@ -22,7 +22,7 @@ class SampleCell(tf.nn.rnn_cell.RNNCell):
 
     def __call__(self, inputs, state, scope=None):
         # inputs: (B, 256 + 2)
-        logits, x = tf.split(inputs, (256, 2), 1)
+        logits, x = tf.split(inputs, (256, 44), 1)
         coarse = tf.multinomial(logits, 1, output_dtype=tf.int32) # (B, 1)
         coarse_norm = tf.scalar_mul(1 / 256, tf.cast(coarse, tf.float32))
         cat = tf.concat([coarse_norm, x], 1) # (B, 1 + 2)
