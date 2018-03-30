@@ -23,4 +23,6 @@ class IndCatCell(tf.nn.rnn_cell.RNNCell):
 
     def __call__(self, inputs, state, scope=None):
         out, state = self._indrnn(inputs, state, scope)
+        pad_size = self._indrnn.output_size - tf.shape(inputs)[1]
+        out = tf.pad(inputs, [[0, 0], [0, pad_size]]) # residual connection
         return out, state

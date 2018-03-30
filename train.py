@@ -3,24 +3,40 @@ import tensorflow as tf
 import numpy as np
 from indrnn_convattention import build_model
 
-input_data = tf.placeholder(tf.uint8, shape=(None, None, 2)) # (B, T, c + s)
-features = tf.placeholder(tf.uint8, shape = (None, None)) # (B, N_f)
+input_data = tf.placeholder(tf.int32, shape=(None, None, 2)) # (B, T, c + s)
+features = tf.placeholder(tf.int32, shape = (None, None)) # (B, N_f)
 
-loss = build_model(input_data, features, DICT_SIZE=30, TIME_STEPS=1000)
-train_op = tf.train.AdamOptimizer(1e-4).minimize(loss)
+c_loss, f_loss = build_model(input_data, features, DICT_SIZE=30, TIME_STEPS=100)
+
+update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+with tf.control_dependencies(update_ops):
+    train_op = tf.train.AdamOptimizer(1e-5).minimize(c_loss + f_loss)
+
+tf.summary.scalar('coarse loss', c_loss)
+tf.summary.scalar('fine loss', f_loss)
+tf.summary.scalar('total loss', c_loss + f_loss)
+merged = tf.summary.merge_all()
 
 BATCH_SIZE = 2
+SEN_LEN = 10
 
 with tf.Session(config=tf.ConfigProto()) as sess:
+
+    train_writer = tf.summary.FileWriter('../train_logs', sess.graph)
+
     sess.run([tf.global_variables_initializer()])
 
-    for iterations in range(1000):
-        mock_sentence = np.random.randint(0, 30, size=(BATCH_SIZE, 100))
+    for iteration in range(1000000):
+        mock_sentence = np.random.randint(0, 30, size=(BATCH_SIZE, SEN_LEN))
         mock_samples_c = np.repeat(mock_sentence, 10, axis=1)
-        mock_samples_f = mock_samples_c + np.tile(np.repeat(np.expand_dims(np.arange(10), 0), 100, axis=0).flatten(), (BATCH_SIZE, 1))
-        _, L = sess.run([train_op, loss],
+        mock_samples_f = mock_samples_c + np.tile(np.repeat(np.expand_dims(np.arange(10), 0), SEN_LEN, axis=0).flatten(), (BATCH_SIZE, 1))
+        _, Lc, Lf, summary = sess.run([train_op, c_loss, f_loss, merged],
                  {
                      input_data.name: np.stack([mock_samples_c, mock_samples_f], 2),
                      features.name: mock_sentence
                  })
-        print(L)
+
+        train_writer.add_summary(summary, iteration)
+
+        if iteration % 10 == 0:
+            print(iteration, Lc, Lf, Lc + Lf)

@@ -2,40 +2,48 @@
 import tensorflow as tf
 from attention_cell import AttentionCell
 from ind_cat_cell import IndCatCell
+from ind_rnn_cell import IndRNNCell
 from sample_cell import SampleCell
 
 #TODO: adjust TIME_STEPS
 def build_model(input_data, # (B, T, 2) uint8
                 features, # (B, N_f) uint8
-                DICT_SIZE = 80,
-                TIME_STEPS = 100000):
+                DICT_SIZE = 30,
+                TIME_STEPS = 1000):
     # (B, T, coarse + fine)
     input_norm = tf.scalar_mul(1 / 256, tf.cast(input_data, tf.float32))
     # input data is now in [0, 1]
 
+    # c_t-1 . f_t-1
+    cf_tm1 = input_norm[:, :-1]
+
     # one-hot encode the features
-    features_1h = tf.one_hot(features, DICT_SIZE) # (B, N_f, DICT_SIZE)
+    #features_1h = tf.one_hot(features, DICT_SIZE) # (B, N_f, DICT_SIZE)
 
     # Regulate each neuron's recurrent weight as recommended in the indRNN paper
+    # TODO: try the gradient punishing method used in improved gan
     recurrent_max = pow(2, 1 / TIME_STEPS)
 
+    # rnn cell for predicting coarse
     cell = tf.contrib.rnn.MultiRNNCell(
-            [AttentionCell(features_1h, recurrent_max),
-             IndCatCell(300, recurrent_max),
-             SampleCell(recurrent_max)])
-    output, state = tf.nn.dynamic_rnn(cell, input_norm, dtype=tf.float32)
-    # output: output over time (B, T, 2 * 256)
-    # state: final state
-    coarse_logits, fine_logits = tf.split(output, [256, 256], 2)
+            [#AttentionCell(features_1h, recurrent_max),
+             IndRNNCell(128, recurrent_max_abs=recurrent_max, name="cell00"),
+             IndRNNCell(256, recurrent_max_abs=recurrent_max, name="cell01")])
+    coarse_logits, state1 = tf.nn.dynamic_rnn(cell, cf_tm1, dtype=tf.float32)
 
-    input_data = tf.cast(input_data, tf.int32)
-    coarse = input_data[:, 1:, 0]
-    fine   = input_data[:, 1:, 1]
+    # rnn cell for predicting fine
+    cell2 = tf.contrib.rnn.MultiRNNCell(
+            [IndRNNCell(128, recurrent_max_abs=recurrent_max, name="cell10"),
+             IndRNNCell(256, recurrent_max_abs=recurrent_max, name="cell11")])
 
-    loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
-        labels=coarse, logits=coarse_logits[:, :-1]))
+    # c_t-1 + f_t-1 + c_t
+    cell2_input = tf.concat([cf_tm1, input_norm[:, 1:, :1]], 2)
+    fine_logits, state2 = tf.nn.dynamic_rnn(cell2, cell2_input, dtype=tf.float32)
 
-    loss += tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
-        labels=fine, logits=fine_logits[:, :-1]))
+    c_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+        labels=input_data[:, 1:, 0], logits=coarse_logits))
 
-    return loss
+    f_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+        labels=input_data[:, 1:, 1], logits=fine_logits))
+
+    return c_loss, f_loss

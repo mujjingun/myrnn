@@ -139,4 +139,5 @@ class IndRNNCell(tf.nn.rnn_cell.RNNCell):
     gate_inputs = tf.add(gate_inputs, recurrent_update)
     gate_inputs = tf.nn.bias_add(gate_inputs, self._bias)
     output = self._activation(gate_inputs)
+    output = tf.layers.batch_normalization(output)
     return output, output
