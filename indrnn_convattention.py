@@ -5,7 +5,6 @@ from ind_cat_cell import IndCatCell
 from ind_rnn_cell import IndRNNCell
 from sample_cell import SampleCell
 
-#TODO: adjust TIME_STEPS
 def build_model(input_data, # (B, T, 2) uint8
                 features, # (B, N_f) uint8
                 DICT_SIZE = 30,
@@ -40,6 +39,7 @@ def build_model(input_data, # (B, T, 2) uint8
     cell2_input = tf.concat([cf_tm1, input_norm[:, 1:, :1]], 2)
     fine_logits, state2 = tf.nn.dynamic_rnn(cell2, cell2_input, dtype=tf.float32)
 
+    # TODO: Original paper uses MSE
     c_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
         labels=input_data[:, 1:, 0], logits=coarse_logits))
 
