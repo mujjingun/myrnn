@@ -8,16 +8,27 @@ features = tf.placeholder(tf.int32, shape = (None, None)) # (B, N_f)
 
 c_loss, f_loss = build_model(input_data, features, DICT_SIZE=30, TIME_STEPS=100)
 
+LEARNING_RATE_INIT = 0.0002
+LEARNING_RATE_DECAY_STEPS = 20000
+
+global_step = tf.get_variable("global_step", shape=[], trainable=False,
+                              initializer=tf.zeros_initializer)
+learning_rate = tf.train.exponential_decay(
+    LEARNING_RATE_INIT, global_step,
+    LEARNING_RATE_DECAY_STEPS, 0.1,
+    staircase=True)
+
 update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 with tf.control_dependencies(update_ops):
-    train_op = tf.train.AdamOptimizer(1e-5).minimize(c_loss + f_loss)
+    optimizer = tf.train.AdamOptimizer(learning_rate)
+    train_op = optimizer.minimize(c_loss + f_loss, global_step=global_step)
 
 tf.summary.scalar('coarse loss', c_loss)
 tf.summary.scalar('fine loss', f_loss)
 tf.summary.scalar('total loss', c_loss + f_loss)
 merged = tf.summary.merge_all()
 
-BATCH_SIZE = 2
+BATCH_SIZE = 50
 SEN_LEN = 10
 
 with tf.Session(config=tf.ConfigProto()) as sess:
