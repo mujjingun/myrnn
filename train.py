@@ -9,7 +9,7 @@ features = tf.placeholder(tf.int32, shape = (None, None)) # (B, N_f)
 c_loss, f_loss = build_model(input_data, features, DICT_SIZE=30, TIME_STEPS=100)
 
 LEARNING_RATE_INIT = 0.0002
-LEARNING_RATE_DECAY_STEPS = 20000
+LEARNING_RATE_DECAY_STEPS = 50000
 
 global_step = tf.get_variable("global_step", shape=[], trainable=False,
                               initializer=tf.zeros_initializer)
