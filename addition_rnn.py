@@ -14,7 +14,7 @@ from ind_rnn_cell import IndRNNCell
 # Parameters taken from https://arxiv.org/abs/1803.04831
 TIME_STEPS = 100
 NUM_UNITS = 128
-LEARNING_RATE_INIT = 0.0002
+LEARNING_RATE_INIT = 0.00001
 LEARNING_RATE_DECAY_STEPS = 20000
 RECURRENT_MAX = pow(2, 1 / TIME_STEPS)
 
@@ -29,22 +29,32 @@ def main():
 
   # Build the graph
   first_input_init = tf.random_uniform_initializer(0, RECURRENT_MAX)
-  first_layer = IndRNNCell(NUM_UNITS, recurrent_max_abs=RECURRENT_MAX,
+  first_layer  = IndRNNCell(NUM_UNITS, recurrent_max_abs=RECURRENT_MAX,
                            recurrent_kernel_initializer=first_input_init)
-  second_layer = IndRNNCell(NUM_UNITS, recurrent_max_abs=RECURRENT_MAX)
+  second_layer = tf.nn.rnn_cell.ResidualWrapper(IndRNNCell(NUM_UNITS, recurrent_max_abs=RECURRENT_MAX))
+  third_layer  = tf.nn.rnn_cell.ResidualWrapper(IndRNNCell(NUM_UNITS, recurrent_max_abs=RECURRENT_MAX))
+  fourth_layer = tf.nn.rnn_cell.ResidualWrapper(IndRNNCell(NUM_UNITS, recurrent_max_abs=RECURRENT_MAX))
+  fifth_layer  = tf.nn.rnn_cell.ResidualWrapper(IndRNNCell(NUM_UNITS, recurrent_max_abs=RECURRENT_MAX))
 
-  cell = tf.nn.rnn_cell.MultiRNNCell([first_layer, second_layer])
+  cell = tf.nn.rnn_cell.MultiRNNCell([
+            first_layer,
+            second_layer,
+            third_layer,
+            fourth_layer,
+            fifth_layer
+  ])
   # cell = tf.nn.rnn_cell.BasicLSTMCell(NUM_UNITS) uncomment this for LSTM runs
 
   output, state = tf.nn.dynamic_rnn(cell, inputs_ph, dtype=tf.float32)
   last = output[:, -1, :]
 
-  weight = tf.get_variable("softmax_weight", shape=[NUM_UNITS, 1])
-  bias = tf.get_variable("softmax_bias", shape=[1],
+  weight = tf.get_variable("softmax_weight", shape=[NUM_UNITS, 256])
+  bias = tf.get_variable("softmax_bias", shape=[256],
                          initializer=tf.constant_initializer(0.1))
-  prediction = tf.squeeze(tf.matmul(last, weight) + bias)
+  prediction = tf.matmul(last, weight) + bias
 
-  loss_op = tf.losses.mean_squared_error(tf.squeeze(targets_ph), prediction)
+  targets_int = tf.cast(targets_ph * 255, tf.int32)
+  loss_op = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=targets_int, logits=prediction))
 
   kernels = tf.get_collection("recurrent_kernel")
   penalty = sum(tf.reduce_mean(tf.maximum(0.0, (k * (k - RECURRENT_MAX)))) for k in kernels)
@@ -81,11 +91,10 @@ def main():
         step += 1
       print("Step [x100] {} MSE {}".format(int(step / 100), np.mean(losses)))
 
-
 def get_batch():
   """Generate the adding problem dataset"""
   # Build the first sequence
-  add_values = np.random.rand(BATCH_SIZE, TIME_STEPS)
+  add_values = np.random.rand(BATCH_SIZE, TIME_STEPS) / 2 # uniform over [0, 0.5)
 
   # Build the second sequence with one 1 in each half and 0s otherwise
   add_indices = np.zeros_like(add_values)
