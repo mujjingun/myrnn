@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Module using IndRNNCell to solve the addition problem
 
 The addition problem is stated in https://arxiv.org/abs/1803.04831. The
@@ -27,8 +28,7 @@ def main():
   targets_ph = tf.placeholder(tf.float32, shape=BATCH_SIZE)
 
   # Build the graph
-  first_input_init = tf.random_uniform_initializer(-RECURRENT_MAX,
-                                                   RECURRENT_MAX)
+  first_input_init = tf.random_uniform_initializer(0, RECURRENT_MAX)
   first_layer = IndRNNCell(NUM_UNITS, recurrent_max_abs=RECURRENT_MAX,
                            recurrent_kernel_initializer=first_input_init)
   second_layer = IndRNNCell(NUM_UNITS, recurrent_max_abs=RECURRENT_MAX)
@@ -46,7 +46,12 @@ def main():
 
   loss_op = tf.losses.mean_squared_error(tf.squeeze(targets_ph), prediction)
 
-  summary = tf.summary.scalar('loss', loss_op)
+  kernels = tf.get_collection("recurrent_kernel")
+  penalty = sum(tf.reduce_mean(tf.maximum(0.0, (k * (k - RECURRENT_MAX)))) for k in kernels)
+
+  summary = tf.summary.merge(
+      [tf.summary.scalar('loss', loss_op),
+       tf.summary.scalar('penalty', penalty)])
 
   global_step = tf.get_variable("global_step", shape=[], trainable=False,
                                 initializer=tf.zeros_initializer)
@@ -54,7 +59,10 @@ def main():
                                              LEARNING_RATE_DECAY_STEPS, 0.1,
                                              staircase=True)
   optimizer = tf.train.AdamOptimizer(learning_rate)
-  optimize = optimizer.minimize(loss_op, global_step=global_step)
+
+  coeff = 0
+  grads_and_vars = optimizer.compute_gradients(loss_op + coeff * penalty)
+  optimize = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
 
   # Train the model
   with tf.Session() as sess:

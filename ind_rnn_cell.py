@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Module implementing the IndRNN cell"""
 import tensorflow as tf
 
@@ -104,10 +105,11 @@ class IndRNNCell(tf.nn.rnn_cell.RNNCell):
       )
 
     # Clip the absolute values of the recurrent weights to the specified maximum
-    if self._recurrent_max_abs:
-      self._recurrent_kernel = tf.clip_by_value(self._recurrent_kernel,
-                                                      -self._recurrent_max_abs,
-                                                      self._recurrent_max_abs)
+    #if self._recurrent_max_abs:
+    #  self._recurrent_kernel = tf.clip_by_value(self._recurrent_kernel,
+    #                                            0,
+    #                                            self._recurrent_max_abs)
+    tf.add_to_collection("recurrent_kernel", self._recurrent_kernel)
 
     self._bias = self.add_variable(
         "bias",

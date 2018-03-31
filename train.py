@@ -4,11 +4,11 @@ import numpy as np
 from indrnn_convattention import build_model
 
 input_data = tf.placeholder(tf.int32, shape=(None, None, 2)) # (B, T, c + s)
-features = tf.placeholder(tf.int32, shape = (None, None)) # (B, N_f)
+features =   tf.placeholder(tf.int32, shape=(None, None)) # (B, N_f)
 
 c_loss, f_loss, c_acc, f_acc = build_model(input_data, features, DICT_SIZE=30, TIME_STEPS=100)
 
-LEARNING_RATE_INIT = 0.0002
+LEARNING_RATE_INIT = 0.0001
 LEARNING_RATE_DECAY_STEPS = 50000
 
 global_step = tf.get_variable("global_step", shape=[], trainable=False,
@@ -24,13 +24,13 @@ with tf.control_dependencies(update_ops):
     train_op = optimizer.minimize(c_loss + f_loss, global_step=global_step)
 
 merged = tf.summary.merge([
-    tf.summary.scalar('coarse loss', c_loss),
-    tf.summary.scalar('fine loss', f_loss),
-    tf.summary.scalar('total loss', c_loss + f_loss)])
+    tf.summary.scalar('coarse_loss', c_loss),
+    tf.summary.scalar('fine_loss', f_loss),
+    tf.summary.scalar('total_loss', c_loss + f_loss)])
 
 accuracies = tf.summary.merge([
-    tf.summary.scalar('coarse accuracy', c_acc),
-    tf.summary.scalar('find accuracy', f_acc)])
+    tf.summary.scalar('coarse_accuracy', c_acc),
+    tf.summary.scalar('fine_accuracy', f_acc)])
 
 def gen_batch(BATCH_SIZE=50, SEN_LEN=10):
     mock_sentence = np.random.randint(0, 30, size=(BATCH_SIZE, SEN_LEN))
@@ -60,5 +60,6 @@ with tf.Session(config=tf.ConfigProto()) as sess:
             mock_sentence, mock_data = gen_batch()
             feed_dict = {input_data.name: mock_data,
                          features.name: mock_sentence}
-            acc_summ, = sess.run([accuracies], feed_dict)
+            acc_summ, c, f = sess.run([accuracies, c_acc, f_acc], feed_dict)
             train_writer.add_summary(acc_summ, iteration)
+            print("coarse acc", c, "fine acc", f)

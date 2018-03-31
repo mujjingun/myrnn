@@ -45,11 +45,19 @@ def build_model(input_data, # (B, T, 2) uint8
     c_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
         labels=input_data[:, 1:, 0], logits=coarse_logits))
 
-    c_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(coarse_logits, axis=2, output_type=tf.int32), input_data[:, 1:, 0]), tf.float32))
+    c_accuracy = tf.reduce_mean(
+        tf.cast(tf.equal(
+        input_data[:, 1:, 0],
+        tf.argmax(coarse_logits, axis=2, output_type=tf.int32)
+        ), tf.float32))
 
     f_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
         labels=input_data[:, 1:, 1], logits=fine_logits))
 
-    f_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(fine_logits, axis=2, output_type=tf.int32), input_data[:, 1:, 1]), tf.float32))
+    f_accuracy = tf.reduce_mean(
+        tf.cast(tf.equal(
+        input_data[:, 1:, 1],
+        tf.argmax(fine_logits, axis=2, output_type=tf.int32)
+        ), tf.float32))
 
     return c_loss, f_loss, c_accuracy, f_accuracy
