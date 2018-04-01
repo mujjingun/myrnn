@@ -14,7 +14,7 @@ from ind_rnn_cell import IndRNNCell
 # Parameters taken from https://arxiv.org/abs/1803.04831
 TIME_STEPS = 100
 NUM_UNITS = 128
-LEARNING_RATE_INIT = 0.0002
+LEARNING_RATE_INIT = 1e-4
 LEARNING_RATE_DECAY_STEPS = 20000
 RECURRENT_MAX = pow(2, 1 / TIME_STEPS)
 
@@ -29,9 +29,9 @@ def main():
 
   # Build the graph
   first_input_init = tf.random_uniform_initializer(0, RECURRENT_MAX)
-  first_layer  = IndRNNCell(NUM_UNITS, recurrent_max_abs=RECURRENT_MAX,
-                           recurrent_kernel_initializer=first_input_init)
-  second_layer = tf.nn.rnn_cell.ResidualWrapper(IndRNNCell(NUM_UNITS, recurrent_max_abs=RECURRENT_MAX))
+  first_layer  = IndRNNCell(2, recurrent_max_abs=RECURRENT_MAX,
+                            recurrent_kernel_initializer=first_input_init)
+  second_layer = IndRNNCell(NUM_UNITS, recurrent_max_abs=RECURRENT_MAX)
 
   cell = tf.nn.rnn_cell.MultiRNNCell([
             first_layer,
@@ -62,9 +62,9 @@ def main():
                                              staircase=True)
   optimizer = tf.train.AdamOptimizer(learning_rate)
 
-  coeff = 0
-  grads_and_vars = optimizer.compute_gradients(loss_op)
-  optimize = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
+  update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+  with tf.control_dependencies(update_ops):
+    optimize = optimizer.minimize(loss_op, global_step=global_step)
 
   # Train the model
   with tf.Session() as sess:
