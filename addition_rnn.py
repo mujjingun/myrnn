@@ -12,14 +12,14 @@ import numpy as np
 from ind_rnn_cell import IndRNNCell
 
 # Parameters taken from https://arxiv.org/abs/1803.04831
-TIME_STEPS = 100
+TIME_STEPS = 10
 NUM_UNITS = 128
-LEARNING_RATE_INIT = 1e-4
-LEARNING_RATE_DECAY_STEPS = 20000
+LEARNING_RATE_INIT = 2e-4
+LEARNING_RATE_DECAY_STEPS = 200000
 RECURRENT_MAX = pow(2, 1 / TIME_STEPS)
 
 # Parameters taken from https://arxiv.org/abs/1511.06464
-BATCH_SIZE = 16
+BATCH_SIZE = 50
 
 
 def main():
@@ -31,29 +31,28 @@ def main():
   first_input_init = tf.random_uniform_initializer(0, RECURRENT_MAX)
   first_layer  = IndRNNCell(2, recurrent_max_abs=RECURRENT_MAX,
                             recurrent_kernel_initializer=first_input_init)
-  second_layer = IndRNNCell(NUM_UNITS, recurrent_max_abs=RECURRENT_MAX)
+  second_layer = IndRNNCell(2, recurrent_max_abs=RECURRENT_MAX)
 
   cell = tf.nn.rnn_cell.MultiRNNCell([
             first_layer,
             second_layer,
   ])
-  # cell = tf.nn.rnn_cell.BasicLSTMCell(NUM_UNITS) uncomment this for LSTM runs
+  #cell = tf.nn.rnn_cell.BasicLSTMCell(NUM_UNITS) uncomment this for LSTM runs
 
   output, state = tf.nn.dynamic_rnn(cell, inputs_ph, dtype=tf.float32)
   last = output[:, -1, :]
 
-  last += tf.layers.batch_normalization(tf.contrib.layers.fully_connected(last, NUM_UNITS))
-  last += tf.layers.batch_normalization(tf.contrib.layers.fully_connected(last, NUM_UNITS))
+  last = tf.layers.batch_normalization(tf.contrib.layers.fully_connected(last, NUM_UNITS))
 
   targets_int = tf.cast(targets_ph * 127, tf.int32)
   loss_op = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=targets_int, logits=last))
 
   kernels = tf.get_collection("recurrent_kernel")
-  penalty = sum(tf.reduce_mean(tf.maximum(0.0, (k * (k - RECURRENT_MAX)))) for k in kernels)
+  penalty = sum(tf.reduce_mean(tf.maximum(0.0, (k * (k - RECURRENT_MAX)))) for k in kernels) / len(kernels)
 
   summary = tf.summary.merge(
-      [tf.summary.scalar('loss', loss_op),])
-       #tf.summary.scalar('penalty', penalty)])
+      [tf.summary.scalar('loss', loss_op),
+       tf.summary.scalar('penalty', penalty)])
 
   global_step = tf.get_variable("global_step", shape=[], trainable=False,
                                 initializer=tf.zeros_initializer)
@@ -64,11 +63,11 @@ def main():
 
   update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
   with tf.control_dependencies(update_ops):
-    optimize = optimizer.minimize(loss_op, global_step=global_step)
+    optimize = optimizer.minimize(loss_op + 10 * penalty, global_step=global_step)
 
   # Train the model
   with tf.Session() as sess:
-    train_writer = tf.summary.FileWriter('../train_logs/addition', sess.graph)
+    train_writer = tf.summary.FileWriter('../train_logs/addition_with_penalty_decay_100000', sess.graph)
     sess.run(tf.global_variables_initializer())
     step = 0
     while True:
@@ -81,7 +80,7 @@ def main():
         losses.append(loss)
         train_writer.add_summary(progress, step)
         step += 1
-      print("Step [x100] {} MSE {}".format(int(step / 100), np.mean(losses)))
+      print("Step {} loss {}".format(int(step), np.mean(losses)))
 
 def get_batch():
   """Generate the adding problem dataset"""

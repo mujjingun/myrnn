@@ -107,10 +107,10 @@ class IndRNNCell(tf.nn.rnn_cell.RNNCell):
       )
 
     # Clip the absolute values of the recurrent weights to the specified maximum
-    if self._recurrent_max_abs:
-      self._recurrent_kernel = tf.clip_by_value(self._recurrent_kernel,
-                                                0,
-                                                self._recurrent_max_abs)
+    #if self._recurrent_max_abs:
+    #  self._recurrent_kernel = tf.clip_by_value(self._recurrent_kernel,
+    #                                            0,
+    #                                            self._recurrent_max_abs)
 
     self._bias = self.add_variable(
         "bias",
