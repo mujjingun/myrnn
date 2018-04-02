@@ -2,14 +2,15 @@
 import tensorflow as tf
 import numpy as np
 from indrnn_convattention import build_model
+import datetime
 
 input_data = tf.placeholder(tf.int32, shape=(None, None, 2)) # (B, T, c + s)
 features =   tf.placeholder(tf.int32, shape=(None, None)) # (B, N_f)
 
-c_loss, f_loss, c_acc, f_acc = build_model(input_data, features, DICT_SIZE=30, TIME_STEPS=100)
+c_loss, f_loss, c_acc, f_acc, prs = build_model(input_data, features, DICT_SIZE=30, TIME_STEPS=100)
 
-LEARNING_RATE_INIT = 0.0001
-LEARNING_RATE_DECAY_STEPS = 50000
+LEARNING_RATE_INIT = 0.0002
+LEARNING_RATE_DECAY_STEPS = 100000
 
 global_step = tf.get_variable("global_step", shape=[], trainable=False,
                               initializer=tf.zeros_initializer)
@@ -18,10 +19,12 @@ learning_rate = tf.train.exponential_decay(
     LEARNING_RATE_DECAY_STEPS, 0.1,
     staircase=True)
 
+optimizer = tf.train.AdamOptimizer(learning_rate)
 update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+gradients, variables = zip(*optimizer.compute_gradients(c_loss + f_loss))
+clipped_grads, _ = tf.clip_by_global_norm(gradients, 5.)
 with tf.control_dependencies(update_ops):
-    optimizer = tf.train.AdamOptimizer(learning_rate)
-    train_op = optimizer.minimize(c_loss + f_loss, global_step=global_step)
+    train_op = optimizer.apply_gradients(zip(clipped_grads, variables), global_step=global_step)
 
 merged = tf.summary.merge([
     tf.summary.scalar('coarse_loss', c_loss),
@@ -30,9 +33,10 @@ merged = tf.summary.merge([
 
 accuracies = tf.summary.merge([
     tf.summary.scalar('coarse_accuracy', c_acc),
-    tf.summary.scalar('fine_accuracy', f_acc)])
+    tf.summary.scalar('fine_accuracy', f_acc),
+    tf.summary.histogram('distribution', prs)])
 
-def gen_batch(BATCH_SIZE=50, SEN_LEN=10):
+def gen_batch(BATCH_SIZE=32, SEN_LEN=10):
     mock_sentence = np.random.randint(0, 30, size=(BATCH_SIZE, SEN_LEN))
     mock_samples_c = np.repeat(mock_sentence, 10, axis=1)
     mock_samples_f = mock_samples_c + np.tile(np.repeat(np.expand_dims(np.arange(10), 0), SEN_LEN, axis=0).flatten(), (BATCH_SIZE, 1))
@@ -40,10 +44,11 @@ def gen_batch(BATCH_SIZE=50, SEN_LEN=10):
 
 with tf.Session(config=tf.ConfigProto()) as sess:
 
-    train_writer = tf.summary.FileWriter('../train_logs', sess.graph)
+    train_writer = tf.summary.FileWriter('../train_logs/toy_clipped_grad_and_runits', sess.graph)
 
     sess.run([tf.global_variables_initializer()])
 
+    start_time = datetime.datetime.now() 
     for iteration in range(1000000):
         mock_sentence, mock_data = gen_batch()
         feed_dict = {input_data.name: mock_data,
@@ -56,6 +61,8 @@ with tf.Session(config=tf.ConfigProto()) as sess:
             print(iteration, Lc, Lf, Lc + Lf)
 
         if iteration % 100 == 0:
+            elapsed = datetime.datetime.now() - start_time
+
             print("evaluating...")
             mock_sentence, mock_data = gen_batch()
             feed_dict = {input_data.name: mock_data,
@@ -63,3 +70,8 @@ with tf.Session(config=tf.ConfigProto()) as sess:
             acc_summ, c, f = sess.run([accuracies, c_acc, f_acc], feed_dict)
             train_writer.add_summary(acc_summ, iteration)
             print("coarse acc", c, "fine acc", f)
+
+            print(elapsed / 100 / mock_data.shape[0], "per data point")
+            start_time = datetime.datetime.now()
+
+
