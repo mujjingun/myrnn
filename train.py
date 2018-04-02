@@ -13,7 +13,7 @@ LEARNING_RATE_INIT = 0.0002
 LEARNING_RATE_DECAY_STEPS = 100000
 
 global_step = tf.get_variable("global_step", shape=[], trainable=False,
-                              initializer=tf.zeros_initializer)
+                              initializer=tf.zeros_initializer, dtype=tf.int32)
 learning_rate = tf.train.exponential_decay(
     LEARNING_RATE_INIT, global_step,
     LEARNING_RATE_DECAY_STEPS, 0.1,
@@ -21,6 +21,7 @@ learning_rate = tf.train.exponential_decay(
 
 optimizer = tf.train.AdamOptimizer(learning_rate)
 update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+
 gradients, variables = zip(*optimizer.compute_gradients(c_loss + f_loss))
 clipped_grads, _ = tf.clip_by_global_norm(gradients, 5.)
 with tf.control_dependencies(update_ops):
@@ -42,18 +43,26 @@ def gen_batch(BATCH_SIZE=32, SEN_LEN=10):
     mock_samples_f = mock_samples_c + np.tile(np.repeat(np.expand_dims(np.arange(10), 0), SEN_LEN, axis=0).flatten(), (BATCH_SIZE, 1))
     return mock_sentence, np.stack([mock_samples_c, mock_samples_f], 2)
 
+saver = tf.train.Saver()
+
 with tf.Session(config=tf.ConfigProto()) as sess:
 
     train_writer = tf.summary.FileWriter('../train_logs/toy_clipped_grad_and_runits', sess.graph)
 
     sess.run([tf.global_variables_initializer()])
+    if input('Restore Model? ') == 'y':
+        saver.restore(sess, input('Model Path: '))
+        print('Restored. Resuming from iteration', global_step.eval())
 
     start_time = datetime.datetime.now() 
-    for iteration in range(1000000):
+    for _ in range(1000000):
         mock_sentence, mock_data = gen_batch()
         feed_dict = {input_data.name: mock_data,
                      features.name: mock_sentence}
-        _, Lc, Lf, summary = sess.run([train_op, c_loss, f_loss, merged], feed_dict)
+
+        _, iteration, Lc, Lf, summary = sess.run(
+            [train_op, global_step, c_loss, f_loss, merged],
+            feed_dict)
 
         train_writer.add_summary(summary, iteration)
 
@@ -72,6 +81,10 @@ with tf.Session(config=tf.ConfigProto()) as sess:
             print("coarse acc", c, "fine acc", f)
 
             print(elapsed / 100 / mock_data.shape[0], "per data point")
+
+            save_path = saver.save(sess, '../models/myrnn', iteration)
+            print('Saved to', save_path)
+
             start_time = datetime.datetime.now()
 
 
