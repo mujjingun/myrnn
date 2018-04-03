@@ -71,15 +71,17 @@ def gen_batch(lineno=1):
        with wave.open(os.path.join(WEB_dir, filename + '.wav'), 'rb') as wavfile:
            num_frames = wavfile.getnframes()
            if wavfile.getnchannels() == 2:
-               fmt = '{}B'.format(num_frames * 4)
+               fmt = '{}h'.format(num_frames * 2)
                raw_data = wavfile.readframes(num_frames)
                voice = np.array(struct.unpack(fmt, raw_data))
-               voice = np.reshape(voice, (-1, 2, 2))[:, 0]
+               voice = np.reshape(voice, (-1, 2))[:, 0]
            else:
-               fmt = '{}B'.format(num_frames * 2)
+               fmt = '{}h'.format(num_frames)
                raw_data = wavfile.readframes(num_frames)
                voice = np.array(struct.unpack(fmt, raw_data))
-               voice = np.reshape(voice, (-1, 2))
+               voice = np.reshape(voice, (-1))
+       voice += 32768
+       voice = np.stack([voice / 256, voice % 256], axis=-1)
 
        sentence_batch.append(encoded)
        voice_batch.append(voice)
@@ -89,14 +91,14 @@ def gen_batch(lineno=1):
            orig_sentence_len = [row.shape[0] for row in sentence_batch]
            sentence_batch = [
                np.concatenate(
-                    [row, np.zeros((max_sentence_len - row.shape[0]))]
+                    [row, np.zeros((max_sentence_len - row.shape[0]) + len(vocab))]
                ) for row in sentence_batch
            ]
            max_voice_len = max(s.shape[0] for s in voice_batch)
            orig_voice_len = [row.shape[0] for row in voice_batch]
            voice_batch = [
                np.concatenate(
-                    [row, np.zeros((max_voice_len - row.shape[0], 2))]
+                    [row, np.tile((128, 0), (max_voice_len - row.shape[0], 1))]
                ) for row in voice_batch
            ]
            yield (np.array(sentence_batch), 
@@ -125,7 +127,6 @@ def main():
             states = None
             for start in range(0, data.shape[1], TIME_STEPS):
                 valid_cnt = np.sum(np.clip(d_lens - start, 0, TIME_STEPS))
-                print(valid_cnt)
                 feed_dict = {input_data.name: data[:, start:start + TIME_STEPS],
                              features.name: sentence[:, start:start + TIME_STEPS],
                              valid_samp_cnt.name: valid_cnt}
