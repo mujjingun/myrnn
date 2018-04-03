@@ -6,13 +6,14 @@ import datetime, wave, os, struct, linecache
 
 input_data = tf.placeholder(tf.int32, shape=(None, None, 2)) # (B, T, c + s)
 features   = tf.placeholder(tf.int32, shape=(None, None)) # (B, N_f)
+valid_samp_cnt = tf.placeholder(tf.float32, shape=[])
 
 BATCH_SIZE = 5
 TIME_STEPS = 1000
 DICT_SIZE  = 30
 
 losses, accuracies, init_states, states_op, prs = build_model(
-    input_data, features,
+    input_data, valid_samp_cnt, features,
     BATCH_SIZE=BATCH_SIZE,
     DICT_SIZE=DICT_SIZE,
     TIME_STEPS=TIME_STEPS)
@@ -20,7 +21,7 @@ losses, accuracies, init_states, states_op, prs = build_model(
 c_loss, f_loss = losses
 c_acc, f_acc = accuracies
 
-LEARNING_RATE_INIT = 2e-4
+LEARNING_RATE_INIT = 1e-5
 LEARNING_RATE_DECAY_STEPS = 100000
 
 global_step = tf.get_variable("global_step", shape=[], trainable=False,
@@ -123,9 +124,11 @@ def main():
             
             states = None
             for start in range(0, data.shape[1], TIME_STEPS):
-
+                valid_cnt = np.sum(np.clip(d_lens - start, 0, TIME_STEPS))
+                print(valid_cnt)
                 feed_dict = {input_data.name: data[:, start:start + TIME_STEPS],
-                             features.name: sentence[:, start:start + TIME_STEPS]}
+                             features.name: sentence[:, start:start + TIME_STEPS],
+                             valid_samp_cnt.name: valid_cnt}
                 if states is not None:
                     feed_dict[states_op] = states
 

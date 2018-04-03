@@ -6,6 +6,7 @@ from ind_rnn_cell import IndRNNCell
 from sample_cell import SampleCell
 
 def build_model(input_data, # (B, T, 2) uint8
+                valid_samp_cnt,
                 features, # (B, N_f) uint8
                 BATCH_SIZE,
                 DICT_SIZE,
@@ -82,8 +83,8 @@ def build_model(input_data, # (B, T, 2) uint8
           dtype=tf.float32)
 
     # Calculate loss and accuracy
-    c_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
-        labels=input_data[:, 1:, 0], logits=coarse_logits))
+    c_loss = tf.reduce_sum(tf.nn.sparse_softmax_cross_entropy_with_logits(
+        labels=input_data[:, 1:, 0], logits=coarse_logits)) / valid_samp_cnt
 
     c_accuracy = tf.reduce_mean(
         tf.cast(tf.equal(
@@ -91,8 +92,8 @@ def build_model(input_data, # (B, T, 2) uint8
         tf.argmax(coarse_logits, axis=2, output_type=tf.int32)
         ), tf.float32))
 
-    f_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
-        labels=input_data[:, 1:, 1], logits=fine_logits))
+    f_loss = tf.reduce_sum(tf.nn.sparse_softmax_cross_entropy_with_logits(
+        labels=input_data[:, 1:, 1], logits=fine_logits)) / valid_samp_cnt
 
     f_accuracy = tf.reduce_mean(
         tf.cast(tf.equal(
