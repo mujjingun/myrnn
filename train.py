@@ -54,7 +54,7 @@ with tf.Session(config=tf.ConfigProto()) as sess:
         saver.restore(sess, input('Model Path: '))
         print('Restored. Resuming from iteration', global_step.eval())
 
-    start_time = datetime.datetime.now() 
+    start_time = datetime.datetime.now()
     for _ in range(1000000):
         mock_sentence, mock_data = gen_batch()
         feed_dict = {input_data.name: mock_data,

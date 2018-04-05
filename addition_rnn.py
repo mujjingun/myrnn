@@ -26,7 +26,6 @@ def main():
   # Placeholders for training data
   inputs_ph = tf.placeholder(tf.float32, shape=(BATCH_SIZE, TIME_STEPS, 2))
   targets_ph = tf.placeholder(tf.float32, shape=BATCH_SIZE)
-  noise = tf.random_normal((BATCH_SIZE, 2))
 
   # Build the graph
   first_input_init = tf.random_uniform_initializer(0, RECURRENT_MAX)
