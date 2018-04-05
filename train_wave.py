@@ -8,7 +8,7 @@ input_data = tf.placeholder(tf.int32, shape=(None, None, 2)) # (B, T, c + s)
 features   = tf.placeholder(tf.int32, shape=(None, None)) # (B, N_f)
 valid_samp_cnt = tf.placeholder(tf.float32, shape=[])
 
-BATCH_SIZE = 5
+BATCH_SIZE = 8
 TIME_STEPS = 1000
 DICT_SIZE  = 30
 
@@ -21,7 +21,7 @@ losses, accuracies, init_states, states_op, prs = build_model(
 c_loss, f_loss = losses
 c_acc, f_acc = accuracies
 
-LEARNING_RATE_INIT = 1e-5
+LEARNING_RATE_INIT = 1e-6
 LEARNING_RATE_DECAY_STEPS = 100000
 
 global_step = tf.get_variable("global_step", shape=[], trainable=False,
@@ -110,11 +110,11 @@ def gen_batch(lineno=1):
            voice_batch = []
 
 def main():
-    saver = tf.train.Saver()
+    saver = tf.train.Saver(sharded=True)
 
     with tf.Session(config=tf.ConfigProto()) as sess:
 
-        train_writer = tf.summary.FileWriter('../train_logs/speak', sess.graph)
+        train_writer = tf.summary.FileWriter('../train_logs/speak2', sess.graph)
 
         sess.run([tf.global_variables_initializer()])
         if input('Restore Model? ') == 'y':
@@ -147,7 +147,7 @@ def main():
 
                     print(elapsed / 100 / BATCH_SIZE, "per data point")
 
-                    save_path = saver.save(sess, '../models/speak', iteration)
+                    save_path = saver.save(sess, '../models/speak2', iteration)
                     print('Saved to', save_path)
 
                     start_time = datetime.datetime.now()
